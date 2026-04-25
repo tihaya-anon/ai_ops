@@ -7,8 +7,7 @@ This layer intentionally does **no cleaning**. Cleaning/dedup/normalization will
 ## Run (docker)
 
 ```bash
-make m1-up
-make m1-ingest-news limit=20 seed=42
-make m1-consume-news n=3
+make ingest-up
+make ingest-news limit=20 seed=42
+make ingest-consume-news n=3
 ```
-

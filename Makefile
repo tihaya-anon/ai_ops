@@ -1,8 +1,9 @@
-COMPOSE ?= docker compose -f infra/docker/docker-compose.yml
+SPARK_PROJECT ?= aiops-spark
+COMPOSE ?= docker compose -p $(SPARK_PROJECT) -f infra/docker/docker-compose.yml
 SPARK_MASTER ?= local[*]
 
 .PHONY: up down ps logs spark-sample spark-daily smoke \
-	m1-up m1-down m1-ps m1-logs m1-ingest-news m1-consume-news m1-smoke
+	ingest-up ingest-down ingest-ps ingest-logs ingest-news ingest-consume-news ingest-smoke
 
 up:
 	$(COMPOSE) up -d
@@ -47,36 +48,39 @@ smoke:
 
 # ---- M1: Kafka + mock API + ingest (pre-Flink) ----
 
-M1_COMPOSE ?= docker compose -f infra/docker/docker-compose.m1.yml
+INGEST_PROJECT ?= aiops-ingest
+INGEST_COMPOSE ?= docker compose -p $(INGEST_PROJECT) -f infra/docker/docker-compose.ingest.yml
 
-m1-up:
-	$(M1_COMPOSE) up -d redpanda mock-api
+ingest-up:
+	@docker rm -f aiops-redpanda aiops-mock-api >/dev/null 2>&1 || true
+	$(INGEST_COMPOSE) up -d redpanda mock-api
 
-m1-down:
-	$(M1_COMPOSE) down
+ingest-down:
+	$(INGEST_COMPOSE) down
+	@docker rm -f aiops-redpanda aiops-mock-api >/dev/null 2>&1 || true
 
-m1-ps:
-	$(M1_COMPOSE) ps
+ingest-ps:
+	$(INGEST_COMPOSE) ps
 
-m1-logs:
-	$(M1_COMPOSE) logs -f --tail=200
+ingest-logs:
+	$(INGEST_COMPOSE) logs -f --tail=200
 
 # Pull raw messages from mock-api, add ingest metadata, and publish to Kafka topic.
-# Usage: make m1-ingest-news limit=20 seed=42
-m1-ingest-news:
-	COMPOSE_PROFILES=ingest $(M1_COMPOSE) run --rm ingest-news \
+# Usage: make ingest-news limit=20 seed=42
+ingest-news:
+	COMPOSE_PROFILES=ingest $(INGEST_COMPOSE) run --rm ingest-news \
 	  --limit $(or $(limit),20) \
 	  --seed $(or $(seed),42)
 
 # Quick debug: read a few messages from the raw topic (via rpk in the redpanda container).
-# Usage: make m1-consume-news n=3
-m1-consume-news:
+# Usage: make ingest-consume-news n=3
+ingest-consume-news:
 	@N=$(or $(n),3); \
-	  docker exec -i aiops-redpanda rpk topic consume news_events_raw_v1 --offset -$$N -n $$N
+	  $(INGEST_COMPOSE) exec -T redpanda rpk topic consume news_events_raw_v1 --offset -$$N -n $$N
 
 # End-to-end (pre-Flink) smoke: start deps -> publish -> consume.
-# Usage: make m1-smoke limit=10 seed=7
-m1-smoke:
-	$(MAKE) m1-up
-	$(MAKE) m1-ingest-news limit=$(or $(limit),10) seed=$(or $(seed),7)
-	$(MAKE) m1-consume-news n=1
+# Usage: make ingest-smoke limit=10 seed=7
+ingest-smoke:
+	$(MAKE) ingest-up
+	$(MAKE) ingest-news limit=$(or $(limit),10) seed=$(or $(seed),7)
+	$(MAKE) ingest-consume-news n=1
