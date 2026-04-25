@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/events/news_event_v1.schema.json",
+  "title": "news_event_v1",
+  "type": "object",
+  "description": "Normalized news event produced by Flink (future step). Included now to align contract early.",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "event_id",
+    "observed_at",
+    "title",
+    "body",
+    "source_url",
+    "language"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1"] },
+    "event_type": { "type": "string", "enum": ["news_event"] },
+    "event_id": { "type": "string", "description": "Stable id after dedup/normalization" },
+    "observed_at": { "type": "string", "description": "Event time (normalized), RFC3339" },
+    "title": { "type": "string" },
+    "body": { "type": "string" },
+    "source_url": { "type": "string" },
+    "language": { "type": "string" },
+    "symbols": { "type": "array", "items": { "type": "string" } },
+    "provider": { "type": ["string", "null"] },
+    "channel": { "type": ["string", "null"] },
+    "quality": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "is_duplicate": { "type": ["boolean", "null"] },
+        "parsed_time_ok": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}

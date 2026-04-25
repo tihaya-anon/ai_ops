@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/events/news_raw_payload_v1.schema.json",
+  "title": "news_raw_payload_v1",
+  "type": "object",
+  "description": "Raw (dirty) news-like message from an upstream provider. This is intentionally permissive to reflect real-world feeds.",
+  "additionalProperties": true,
+  "properties": {
+    "provider_message_id": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "channel": { "type": ["string", "null"], "description": "rss/webhook/scrape/etc" },
+    "title": { "type": ["string", "null"] },
+    "body": { "type": ["string", "null"], "description": "May contain HTML, emojis, inconsistent punctuation, etc." },
+    "url": { "type": ["string", "null"] },
+    "published_at": {
+      "type": ["string", "null"],
+      "description": "Provider time. Often missing or in inconsistent formats."
+    },
+    "language": { "type": ["string", "null"], "description": "BCP-47 like en/zh, but may be wrong." },
+    "symbols": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "May contain duplicates, mixed formats (AAPL, 000001.SZ, etc)."
+    },
+    "importance": {
+      "type": ["integer", "string", "null"],
+      "description": "Upstream importance score; sometimes stringified."
+    },
+    "raw": {
+      "type": ["object", "null"],
+      "description": "Optional nested object for provider-specific fields.",
+      "additionalProperties": true
+    }
+  }
+}

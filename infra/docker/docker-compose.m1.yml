@@ -1,0 +1,61 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.1.13
+    container_name: aiops-redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://aiops-redpanda:9092,PLAINTEXT_HOST://localhost:19092
+      - --pandaproxy-addr
+      - PLAINTEXT://0.0.0.0:8082
+      - --advertise-pandaproxy-addr
+      - PLAINTEXT://aiops-redpanda:8082,PLAINTEXT_HOST://localhost:8082
+    ports:
+      - "19092:9092"
+      - "18082:8082"
+      - "9644:9644"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mock-api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/mock_api/Dockerfile
+    container_name: aiops-mock-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  ingest-news:
+    build:
+      context: ../..
+      dockerfile: infra/docker/ingest/Dockerfile
+    profiles: ["ingest"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      mock-api:
+        condition: service_started
+    environment:
+      - KAFKA_BOOTSTRAP=redpanda:9092
+      - TOPIC=news_events_raw_v1
+      - API_BASE_URL=http://mock-api:8000
+      - SOURCE_SYSTEM=ingest_news_api
+      - PYTHONUNBUFFERED=1

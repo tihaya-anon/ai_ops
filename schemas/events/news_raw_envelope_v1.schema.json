@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/events/news_raw_envelope_v1.schema.json",
+  "title": "news_raw_envelope_v1",
+  "type": "object",
+  "description": "Ingest envelope placed onto Kafka. Flink consumes this and produces normalized/structured events.",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "event_id",
+    "source_system",
+    "fetched_at",
+    "ingested_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1"] },
+    "event_type": { "type": "string", "enum": ["news_raw"] },
+    "event_id": { "type": "string", "description": "UUID" },
+    "source_system": {
+      "type": "string",
+      "description": "Ingest component name, e.g. ingest_news_api"
+    },
+    "source": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "provider": { "type": ["string", "null"] },
+        "channel": { "type": ["string", "null"] }
+      }
+    },
+    "fetched_at": {
+      "type": "string",
+      "description": "RFC3339/ISO8601 timestamp when pulled from upstream"
+    },
+    "ingested_at": {
+      "type": "string",
+      "description": "RFC3339/ISO8601 timestamp when published to Kafka"
+    },
+    "trace": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": ["string", "null"] },
+        "request_id": { "type": ["string", "null"] }
+      }
+    },
+    "payload": { "$ref": "news_raw_payload_v1.schema.json" }
+  }
+}

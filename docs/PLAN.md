@@ -11,6 +11,10 @@
 - **M1：事件主链路（Speed layer，先跑通再变强）**
   - 选定主场景：`docs/scenarios/rt_market_intel_copilot.md`
   - Kafka topic + schema 先定“最小可用”（先 JSON 文档化，后续再 Avro/Schema Registry）
+    - Raw topic（pre-Flink）：`news_events_raw_v1`
+    - Schema（JSON Schema）：`schemas/events/news_raw_envelope_v1.schema.json`
+    - 本机启动/验证：`make m1-smoke limit=10 seed=7`
+      - Redpanda 对宿主机暴露端口：Kafka `localhost:19092`，HTTP Proxy `localhost:18082`
   - Flink job（Java）：去重 + 归一化 + 实体/主题抽取（可先规则后模型），输出 `event_candidates`
   - Serving 最小落地：先把 `event_candidates` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
 
