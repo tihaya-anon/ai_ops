@@ -1,6 +1,6 @@
 # Architecture: Lambda-style AIOps pipeline (practice project)
 
-This project models the **AIOps incident-copilot** scenario in `docs/SCENARIO.md`, using a **Lambda-like architecture**:
+This project models the selected scenario in `docs/SCENARIO.md`, using a **Lambda-like architecture**:
 
 - **Speed layer (streaming)**: near-real-time incident candidates and enrichment.
 - **Batch layer (Spark)**: daily/offline recomputation, backfill, and quality analytics.
@@ -18,8 +18,8 @@ The goal is not to use technologies “because we can”, but because the AIOps 
 Spark batch jobs are responsible for tasks that are **expensive**, **backfill-heavy**, or require **global recomputation**:
 
 1) **Daily incident analytics**
-- Aggregate incident candidates into daily metrics (counts, top services, severity distribution).
-- Produce datasets for dashboards and for tracking MTTA/MTTR trends.
+- Aggregate candidates/cases into daily metrics (counts, top entities, severity distribution).
+- Produce datasets for dashboards and for tracking key SLO/SLA trends.
 
 2) **Backfill / reprocessing**
 - Re-run aggregation logic on historical data after you change event schemas or correlation rules.
@@ -44,4 +44,3 @@ All jobs read/write under `data/` (mounted to `/data` in containers):
 - Streaming produces **fresh** but possibly approximate results.
 - Batch produces **corrected** results for a given time partition (e.g., `dt=2026-04-25`).
 - Serving prefers batch outputs when available, else falls back to streaming outputs.
-

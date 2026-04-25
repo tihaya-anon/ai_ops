@@ -1,29 +1,33 @@
 - **M0：环境与工程骨架（先做，保证开发可快速测试）**
-  - 代码组织：一个 repo（`services/`、`flink-jobs/`、`infra/`、`docs/`、`scripts/`），统一 `make`/`task` 命令入口
-  - 本机一键启动：`docker compose` 拉起 Kafka、Flink（JobManager/TaskManager）、向量库（先选一个轻量可替换的）、Postgres、OTel Collector、Grafana/Prometheus（可选）
-  - 测试通道打通：`pytest`（Python）+ `mvn test`（Java），再加一套“集成测试”可以在 compose 环境里跑（推荐用 Testcontainers/Compose profile）
-  - CI：GitHub Actions（或本地等价）跑 `lint + unit + integration(smoke)`，保证每次改动能快速验证
+  - 文件夹结构对齐 Lambda：`docs/PROJECT_STRUCTURE.md`
+  - 本机一键启动依赖：`infra/docker/docker-compose.yml` + `Makefile`
+    - Batch（Spark）已完成：`make up` / `make spark-sample dt=...` / `make spark-daily dt=...`
+    - Streaming（Flink/Kafka/OTel/DB）后续按 profile 逐步加，避免一次性引入太多组件
+  - 测试策略（先轻后重）：
+    - Spark job 的 smoke：生成 sample 分区 -> 跑聚合 -> 检查输出分区存在
+    - 后续再补单测（Python/Java）与集成测（Compose/Testcontainers）
+  - CI（后续）：先跑 smoke + lint，再逐步加 integration
 
-- **M1：事件主链路（先把“流式事件处理系统”跑通）**
-  - Kafka topic 约定 + 事件 schema（JSON/Avro 均可，个人项目建议先 JSON + 明确字段）
-  - Flink job（Java）：窗口聚合/去重/事件包生成，输出到 `incident_candidates`
-  - 一个最小输出端：把事件包写到 Postgres + 控制台/简单 API，先验证“数据流通”
+- **M1：事件主链路（Speed layer，先跑通再变强）**
+  - 选定主场景：`docs/scenarios/rt_market_intel_copilot.md`
+  - Kafka topic + schema 先定“最小可用”（先 JSON 文档化，后续再 Avro/Schema Registry）
+  - Flink job（Java）：去重 + 归一化 + 实体/主题抽取（可先规则后模型），输出 `event_candidates`
+  - Serving 最小落地：先把 `event_candidates` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
 
-- **M2：RAG 文档流（体现“实时更新”而不是离线索引）**
-  - 文档变更进入 Kafka（模拟 runbook/复盘文档）
-  - Flink/Python worker 做分块 + embedding + 写入向量库
-  - API 支持按事件包检索证据（先不接 LLM，先把检索质量/可追溯做对）
+- **M2：RAG 文档流（投研框架/术语表/历史事件，可追溯）**
+  - `doc_updates` 文档变更流进入 Kafka（本机先用文件模拟）
+  - 分块 + embedding 入库（实时/准实时），保留 chunk 引用 id（可追溯）
+  - `event_candidates` 检索证据（先不接 LLM），优先把“证据包”做稳定
 
-- **M3：LLM 服务与网关（vLLM + 受控输出）**
-  - 本机用 vLLM 起 OpenAI 兼容接口（容器化），网关统一超时/重试/限流
-  - 输出强约束：LLM 只产出结构化 JSON（分类、优先级、建议步骤、引用证据 id），避免“泛泛总结”
+- **M3：LLM Copilot（不进关键决策链路）**
+  - vLLM 作为高吞吐推理服务（OpenAI 兼容接口）
+  - LLM 仅用于 `event_candidates` 的事件卡片生成/影响假设/待验证清单，输出必须结构化 JSON + citations
+  - 限流/超时/回退：LLM 挂了也不影响 streaming 产出 `event_candidates`
 
-- **M4：可观测与韧性（OTel + 降级 + Chaos）**
-  - OTel trace 覆盖：Flink 处理、检索、LLM 调用、输出落地；并记录 token/latency/cost
-  - 降级路径：LLM 或向量库不可用时，回退模板化摘要 + 固定 runbook
-  - Chaos：注入 vLLM 延迟/宕机、向量库超时、Kafka 抖动，验收系统仍能出结果（哪怕是降级结果）
+- **M4：可观测与韧性（像生产一样可解释）**
+  - OTel trace 覆盖：Flink、检索、LLM、Serving；并记录 token/latency/cost
+  - 分层降级：RAG/LLM 出问题时，回退到模板化解释 + 固定策略条款
+  - Chaos：注入延迟/宕机/超时，验收“决策链路不断、解释链路可降级”
 
-- **M5：AWS 可迁移落地（展示能力的“第二运行态”，不影响本机开发）**
-  - 设计原则：**所有组件容器化 + 配置从环境变量注入 + 基础设施用 IaC**（`infra/terraform` 或 `infra/cdk`）
-  - 映射建议（尽量“对位替换”）：本机 Kafka→AWS MSK；本机 Flink→AWS Kinesis Data Analytics for Apache Flink；本机容器→ECS Fargate（或 EKS）；观测→CloudWatch + ADOT(OTel)；文档/结果存储→RDS(Postgres)
-  - 交付物：一套 `infra/aws` 可以一键部署最小栈（先跑通一条链路），并在 README 写清“本机/云上两种启动方式”
+- **Backlog：云上形态（AWS）**
+  - 先不做，但所有组件保持“容器化 + 配置外置 + 可替换依赖”的形态，为后续迁移留空间

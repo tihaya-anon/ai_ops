@@ -1,0 +1,20 @@
+# Local data / lake outputs
+data/
+
+# Spark outputs / artifacts
+*.parquet
+*.crc
+_SUCCESS
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
