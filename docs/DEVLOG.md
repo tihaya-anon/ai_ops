@@ -19,4 +19,7 @@
   - `schemas/events/news_raw_payload_v1.schema.json`
   - `schemas/events/news_raw_envelope_v1.schema.json`
   - 预留 Flink 输出契约：`schemas/events/news_event_v1.schema.json`
-
+- 新增 Flink 清洗/归一化 job（Streaming 最小闭环）
+  - Job：`streaming/flink/jobs/news_normalize_job`
+  - 输入：`news_events_raw_v1` -> 输出：`news_events_v1`
+  - 一键验证：`make stream-smoke limit=10 seed=7`

@@ -1,0 +1,26 @@
+services:
+  flink-jobmanager:
+    image: flink:1.19.1-scala_2.12-java11
+    command: jobmanager
+    ports:
+      - "18081:8081"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        parallelism.default: 1
+    volumes:
+      - ../..:/workspace
+      - ../../streaming/flink/jobs/news_normalize_job/target:/opt/flink/usrlib
+
+  flink-taskmanager:
+    image: flink:1.19.1-scala_2.12-java11
+    command: taskmanager
+    depends_on:
+      - flink-jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1

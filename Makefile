@@ -3,7 +3,9 @@ COMPOSE ?= docker compose -p $(SPARK_PROJECT) -f infra/docker/docker-compose.yml
 SPARK_MASTER ?= local[*]
 
 .PHONY: up down ps logs spark-sample spark-daily smoke \
-	ingest-up ingest-down ingest-ps ingest-logs ingest-news ingest-consume-news ingest-smoke
+	ingest-up ingest-down ingest-ps ingest-logs ingest-init-topics ingest-news ingest-consume-news ingest-smoke \
+	stream-up stream-down stream-ps stream-logs stream-build-news-normalize stream-run-news-normalize \
+	stream-init-topics stream-consume-news-events stream-smoke
 
 up:
 	$(COMPOSE) up -d
@@ -55,6 +57,13 @@ ingest-up:
 	@docker rm -f aiops-redpanda aiops-mock-api >/dev/null 2>&1 || true
 	$(INGEST_COMPOSE) up -d redpanda mock-api
 
+ingest-init-topics:
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+	  $(INGEST_COMPOSE) exec -T redpanda rpk cluster health >/dev/null 2>&1 && break; \
+	  sleep 1; \
+	done
+	@$(INGEST_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_raw_v1 >/dev/null 2>&1 || true
+
 ingest-down:
 	$(INGEST_COMPOSE) down
 	@docker rm -f aiops-redpanda aiops-mock-api >/dev/null 2>&1 || true
@@ -82,5 +91,55 @@ ingest-consume-news:
 # Usage: make ingest-smoke limit=10 seed=7
 ingest-smoke:
 	$(MAKE) ingest-up
+	$(MAKE) ingest-init-topics
 	$(MAKE) ingest-news limit=$(or $(limit),10) seed=$(or $(seed),7)
 	$(MAKE) ingest-consume-news n=1
+
+# ---- Streaming (Flink) ----
+
+STREAM_PROJECT ?= aiops-stream
+STREAM_COMPOSE ?= docker compose -p $(STREAM_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml
+
+stream-up:
+	$(STREAM_COMPOSE) up -d redpanda mock-api flink-jobmanager flink-taskmanager
+
+stream-init-topics:
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+	  $(STREAM_COMPOSE) exec -T redpanda rpk cluster health >/dev/null 2>&1 && break; \
+	  sleep 1; \
+	done
+	@$(STREAM_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_raw_v1 >/dev/null 2>&1 || true
+	@$(STREAM_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_v1 >/dev/null 2>&1 || true
+
+stream-down:
+	$(STREAM_COMPOSE) down
+
+stream-ps:
+	$(STREAM_COMPOSE) ps
+
+stream-logs:
+	$(STREAM_COMPOSE) logs -f --tail=200
+
+# Build Flink job jar (host Maven).
+stream-build-news-normalize:
+	mvn -q -U -f streaming/flink/jobs/news_normalize_job/pom.xml -DskipTests package
+
+# Submit the job to the running Flink cluster.
+stream-run-news-normalize:
+	$(STREAM_COMPOSE) exec -T flink-jobmanager flink run -d /opt/flink/usrlib/news_normalize_job.jar \
+	  -- --bootstrap redpanda:9092 --input-topic news_events_raw_v1 --output-topic news_events_v1
+
+# Consume a few normalized events for debugging.
+stream-consume-news-events:
+	@N=$(or $(n),3); \
+	  $(STREAM_COMPOSE) exec -T redpanda rpk topic consume news_events_v1 --offset -$$N -n $$N
+
+# End-to-end smoke (streaming): up -> ingest some raw -> build jar -> run normalize -> consume output.
+stream-smoke:
+	$(MAKE) stream-up
+	$(MAKE) stream-init-topics
+	COMPOSE_PROFILES=ingest $(STREAM_COMPOSE) run --rm ingest-news --limit $(or $(limit),10) --seed $(or $(seed),7)
+	$(MAKE) stream-build-news-normalize
+	$(MAKE) stream-run-news-normalize
+	@sleep 3
+	$(MAKE) stream-consume-news-events n=1

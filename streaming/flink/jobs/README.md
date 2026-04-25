@@ -1,7 +1,5 @@
 # Flink jobs (speed layer)
 
-Planned jobs (names are placeholders, adjust as schemas settle):
+Jobs (incremental; keep runnable locally):
 
-- `risk_decision_job`: window features -> allow/block/review
-- `case_router_job`: create `risk_cases` for copilot/explanations
-
+- `news_normalize_job`: consume `news_events_raw_v1` -> normalize/dedup -> publish `news_events_v1`
