@@ -26,6 +26,7 @@
     - Postgres 表初始化：`make pg-init-event-candidates`
     - 可选：一键启动带 Postgres 的开发环境：`make dev-smoke limit=10 seed=7`
       - dev 专用：Postgres 使用 `trust`（无密码），不要用于生产
+      - 如遇到 PG 目录权限/历史认证配置问题：`make dev-reset-pg`
 
 - **M2：RAG 文档流（投研框架/术语表/历史事件，可追溯）**
   - `doc_updates` 文档变更流进入 Kafka（本机先用文件模拟）

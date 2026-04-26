@@ -10,6 +10,8 @@ services:
       # Do NOT use this in production.
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      # Use a dev-specific data dir so switching auth modes doesn't get stuck
-      # with a previously initialized cluster configuration.
-      - ../../data/pg_dev:/var/lib/postgresql/data
+      # Use a named volume to avoid host permission issues (Postgres runs as a container user).
+      - pg_dev_data:/var/lib/postgresql/data
+
+volumes:
+  pg_dev_data: {}

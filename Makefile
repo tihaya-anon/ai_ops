@@ -161,14 +161,25 @@ stream-smoke:
 
 # ---- Local Postgres (host) helpers ----
 
+# Wait for local Postgres to accept connections (uses PG* env vars).
+pg-wait:
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+	  $(ENV_SH) psql -v ON_ERROR_STOP=1 -c "select 1" >/dev/null 2>&1 && exit 0; \
+	  sleep 1; \
+	done; \
+	echo "postgres not ready (check PGHOST/PGPORT/PGUSER/PGDATABASE)"; \
+	exit 2
+
 # Initialize the event_candidates table.
 # Requires psql on host and PG* env vars (see .env.example).
 pg-init-event-candidates:
+	$(MAKE) pg-wait
 	$(ENV_SH) psql -v ON_ERROR_STOP=1 -f scripts/sql/init_event_candidates_v1.sql
 
 # Quick debug: show latest candidates in Postgres.
 pg-tail-event-candidates:
 	@N=$(or $(n),5); \
+	  $(MAKE) pg-wait >/dev/null; \
 	  $(ENV_SH) psql -v ON_ERROR_STOP=1 -c "select candidate_id, observed_at, left(payload->>'title', 80) as title from event_candidates_v1 order by observed_at desc nulls last limit $$N;"
 
 # ---- Dev env: portable compose (includes Postgres container) ----
@@ -221,5 +232,11 @@ dev-smoke:
 
 # Reset dev Postgres data directory (dev-only, destructive).
 dev-reset-pg:
-	$(MAKE) dev-down
-	rm -rf data/pg_dev
+	# Remove containers + the named Postgres volume.
+	$(DEV_COMPOSE) down -v
+	# Backward-compat cleanup: older versions used a bind mount under data/pg_dev,
+	# which may be owned by a container uid. Clean it via a one-shot root container.
+	@if [ -d data/pg_dev ]; then \
+	  docker run --rm -v "$$PWD/data/pg_dev:/pg" alpine:3.20 sh -c 'rm -rf /pg/*' || true; \
+	  rm -rf data/pg_dev || true; \
+	fi
