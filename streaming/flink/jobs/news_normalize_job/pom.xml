@@ -61,6 +61,12 @@
       <artifactId>flink-connector-kafka</artifactId>
       <version>${flink.kafka.connector.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.4</version>
+    </dependency>
   </dependencies>
 
   <build>

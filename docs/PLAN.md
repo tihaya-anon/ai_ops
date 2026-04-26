@@ -22,6 +22,7 @@
   - Flink job（Java）：去重 + 归一化 + 实体/主题抽取（可先规则后模型），输出 `event_candidates_v1`
     - Schema（JSON Schema）：`schemas/events/event_candidate_v1.schema.json`
   - Serving 最小落地：先把 `event_candidates_v1` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
+    - Postgres 表初始化：`make pg-init-event-candidates`
 
 - **M2：RAG 文档流（投研框架/术语表/历史事件，可追溯）**
   - `doc_updates` 文档变更流进入 Kafka（本机先用文件模拟）

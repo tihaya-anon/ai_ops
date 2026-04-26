@@ -36,6 +36,16 @@ public final class NewsNormalizeJob {
     KafkaSink<String> candidatesSink = buildSink(jobArgs, jobArgs.candidatesTopic);
     candidates.sinkTo(candidatesSink).name("kafka_event_candidates_v1");
 
+    if (jobArgs.pgEnabled) {
+      candidates.addSink(
+              new PostgresEventCandidateSink(
+                  jobArgs.pgJdbcUrl,
+                  jobArgs.pgUser,
+                  jobArgs.pgPassword,
+                  jobArgs.pgTable))
+          .name("pg_event_candidates_v1");
+    }
+
     env.execute("news_normalize_job");
   }
 

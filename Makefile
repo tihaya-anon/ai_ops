@@ -1,11 +1,15 @@
 SPARK_PROJECT ?= aiops-spark
-COMPOSE ?= docker compose -p $(SPARK_PROJECT) -f infra/docker/docker-compose.yml
+ENV_FILE ?= .env
+COMPOSE_ENV_FILE := $(if $(wildcard $(ENV_FILE)),--env-file $(ENV_FILE),)
+
+COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(SPARK_PROJECT) -f infra/docker/docker-compose.yml
 SPARK_MASTER ?= local[*]
 
 .PHONY: up down ps logs spark-sample spark-daily smoke \
 	ingest-up ingest-down ingest-ps ingest-logs ingest-init-topics ingest-news ingest-consume-news ingest-smoke \
 	stream-up stream-down stream-ps stream-logs stream-build-news-normalize stream-run-news-normalize \
-	stream-init-topics stream-consume-news-events stream-consume-event-candidates stream-smoke
+	stream-init-topics stream-consume-news-events stream-consume-event-candidates stream-smoke \
+	pg-init-event-candidates pg-tail-event-candidates
 
 up:
 	$(COMPOSE) up -d
@@ -51,7 +55,7 @@ smoke:
 # ---- M1: Kafka + mock API + ingest (pre-Flink) ----
 
 INGEST_PROJECT ?= aiops-ingest
-INGEST_COMPOSE ?= docker compose -p $(INGEST_PROJECT) -f infra/docker/docker-compose.ingest.yml
+INGEST_COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(INGEST_PROJECT) -f infra/docker/docker-compose.ingest.yml
 
 ingest-up:
 	@docker rm -f aiops-redpanda aiops-mock-api >/dev/null 2>&1 || true
@@ -98,7 +102,7 @@ ingest-smoke:
 # ---- Streaming (Flink) ----
 
 STREAM_PROJECT ?= aiops-stream
-STREAM_COMPOSE ?= docker compose -p $(STREAM_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml
+STREAM_COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(STREAM_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml
 
 stream-up:
 	$(STREAM_COMPOSE) up -d redpanda mock-api flink-jobmanager flink-taskmanager
@@ -151,3 +155,15 @@ stream-smoke:
 	@sleep 3
 	$(MAKE) stream-consume-news-events n=1
 	$(MAKE) stream-consume-event-candidates n=1
+
+# ---- Local Postgres (host) helpers ----
+
+# Initialize the event_candidates table.
+# Requires psql on host and PG* env vars (see .env.example).
+pg-init-event-candidates:
+	psql -v ON_ERROR_STOP=1 -f scripts/sql/init_event_candidates_v1.sql
+
+# Quick debug: show latest candidates in Postgres.
+pg-tail-event-candidates:
+	@N=$(or $(n),5); \
+	  psql -v ON_ERROR_STOP=1 -c "select candidate_id, observed_at, left(payload->>'title', 80) as title from event_candidates_v1 order by observed_at desc nulls last limit $$N;"
