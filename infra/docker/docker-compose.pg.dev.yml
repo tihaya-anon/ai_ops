@@ -12,6 +12,8 @@ services:
     volumes:
       # Use a named volume to avoid host permission issues (Postgres runs as a container user).
       - pg_dev_data:/var/lib/postgresql/data
+      # Read-only workspace mount so we can run init SQL from the repo in dev.
+      - ../..:/workspace:ro
 
 volumes:
   pg_dev_data: {}
