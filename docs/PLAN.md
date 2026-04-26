@@ -18,6 +18,7 @@
   - Flink（Java）先做“清洗 + 归一化 + 去重”的最小闭环
     - 输入：`news_events_raw_v1` -> 输出：`news_events_v1`
     - 本机端到端：`make stream-smoke limit=10 seed=7`
+    - 代码实现：`streaming/flink/jobs/news_normalize_job/`（已将 `NewsNormalizeJob` 拆分为参数解析/归一化/去重等小类，便于后续扩展）
   - Flink job（Java）：去重 + 归一化 + 实体/主题抽取（可先规则后模型），输出 `event_candidates`
   - Serving 最小落地：先把 `event_candidates` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
 
