@@ -11,7 +11,8 @@ SPARK_MASTER ?= local[*]
 	stream-up stream-down stream-ps stream-logs stream-build-news-normalize stream-run-news-normalize \
 	stream-init-topics stream-consume-news-events stream-consume-event-candidates stream-smoke \
 	pg-init-event-candidates pg-tail-event-candidates \
-	dev-up dev-down dev-ps dev-logs dev-init-topics dev-run-news-normalize dev-run-news-normalize-pg dev-smoke
+	dev-up dev-down dev-ps dev-logs dev-init-topics dev-run-news-normalize dev-run-news-normalize-pg dev-smoke \
+	dev-reset-pg
 
 up:
 	$(COMPOSE) up -d
@@ -217,3 +218,8 @@ dev-smoke:
 	@$(DEV_COMPOSE) exec -T redpanda rpk topic consume news_events_v1 --offset -1 -n 1
 	@$(DEV_COMPOSE) exec -T redpanda rpk topic consume event_candidates_v1 --offset -1 -n 1
 	$(MAKE) pg-tail-event-candidates n=1
+
+# Reset dev Postgres data directory (dev-only, destructive).
+dev-reset-pg:
+	$(MAKE) dev-down
+	rm -rf data/pg_dev
