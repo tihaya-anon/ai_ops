@@ -4,6 +4,7 @@ public final class NewsNormalizeJobArgs {
   final String bootstrapServers;
   final String inputTopic;
   final String outputTopic;
+  final String candidatesTopic;
   final String consumerGroupId;
   final int dedupTtlMinutes;
 
@@ -11,11 +12,13 @@ public final class NewsNormalizeJobArgs {
       String bootstrapServers,
       String inputTopic,
       String outputTopic,
+      String candidatesTopic,
       String consumerGroupId,
       int dedupTtlMinutes) {
     this.bootstrapServers = bootstrapServers;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
+    this.candidatesTopic = candidatesTopic;
     this.consumerGroupId = consumerGroupId;
     this.dedupTtlMinutes = dedupTtlMinutes;
   }
@@ -24,6 +27,7 @@ public final class NewsNormalizeJobArgs {
     String bootstrap = envOrDefault("KAFKA_BOOTSTRAP", "redpanda:9092");
     String input = envOrDefault("INPUT_TOPIC", "news_events_raw_v1");
     String output = envOrDefault("OUTPUT_TOPIC", "news_events_v1");
+    String candidates = envOrDefault("CANDIDATES_TOPIC", "event_candidates_v1");
     String group = envOrDefault("CONSUMER_GROUP", "news_normalize_job_v1");
     int ttl = Integer.parseInt(envOrDefault("DEDUP_TTL_MINUTES", "60"));
 
@@ -38,6 +42,9 @@ public final class NewsNormalizeJobArgs {
         case "--output-topic":
           output = args[++i];
           break;
+        case "--candidates-topic":
+          candidates = args[++i];
+          break;
         case "--group-id":
           group = args[++i];
           break;
@@ -49,7 +56,7 @@ public final class NewsNormalizeJobArgs {
       }
     }
 
-    return new NewsNormalizeJobArgs(bootstrap, input, output, group, ttl);
+    return new NewsNormalizeJobArgs(bootstrap, input, output, candidates, group, ttl);
   }
 
   private static String envOrDefault(String name, String defaultValue) {

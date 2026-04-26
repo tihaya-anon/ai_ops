@@ -5,7 +5,7 @@ SPARK_MASTER ?= local[*]
 .PHONY: up down ps logs spark-sample spark-daily smoke \
 	ingest-up ingest-down ingest-ps ingest-logs ingest-init-topics ingest-news ingest-consume-news ingest-smoke \
 	stream-up stream-down stream-ps stream-logs stream-build-news-normalize stream-run-news-normalize \
-	stream-init-topics stream-consume-news-events stream-smoke
+	stream-init-topics stream-consume-news-events stream-consume-event-candidates stream-smoke
 
 up:
 	$(COMPOSE) up -d
@@ -110,6 +110,7 @@ stream-init-topics:
 	done
 	@$(STREAM_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_raw_v1 >/dev/null 2>&1 || true
 	@$(STREAM_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_v1 >/dev/null 2>&1 || true
+	@$(STREAM_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 event_candidates_v1 >/dev/null 2>&1 || true
 
 stream-down:
 	$(STREAM_COMPOSE) down
@@ -127,19 +128,26 @@ stream-build-news-normalize:
 # Submit the job to the running Flink cluster.
 stream-run-news-normalize:
 	$(STREAM_COMPOSE) exec -T flink-jobmanager flink run -d /opt/flink/usrlib/news_normalize_job.jar \
-	  -- --bootstrap redpanda:9092 --input-topic news_events_raw_v1 --output-topic news_events_v1
+	  -- --bootstrap redpanda:9092 --input-topic news_events_raw_v1 --output-topic news_events_v1 --candidates-topic event_candidates_v1
 
 # Consume a few normalized events for debugging.
 stream-consume-news-events:
 	@N=$(or $(n),3); \
 	  $(STREAM_COMPOSE) exec -T redpanda rpk topic consume news_events_v1 --offset -$$N -n $$N
 
+# Consume a few event candidates for debugging.
+stream-consume-event-candidates:
+	@N=$(or $(n),3); \
+	  $(STREAM_COMPOSE) exec -T redpanda rpk topic consume event_candidates_v1 --offset -$$N -n $$N
+
 # End-to-end smoke (streaming): up -> ingest some raw -> build jar -> run normalize -> consume output.
 stream-smoke:
 	$(MAKE) stream-up
 	$(MAKE) stream-init-topics
-	COMPOSE_PROFILES=ingest $(STREAM_COMPOSE) run --rm ingest-news --limit $(or $(limit),10) --seed $(or $(seed),7)
 	$(MAKE) stream-build-news-normalize
 	$(MAKE) stream-run-news-normalize
 	@sleep 3
+	COMPOSE_PROFILES=ingest $(STREAM_COMPOSE) run --rm ingest-news --limit $(or $(limit),10) --seed $(or $(seed),7)
+	@sleep 3
 	$(MAKE) stream-consume-news-events n=1
+	$(MAKE) stream-consume-event-candidates n=1

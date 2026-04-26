@@ -24,8 +24,17 @@ public final class NewsNormalizeJob {
     KafkaSource<String> source = buildSource(jobArgs);
     DataStream<String> normalized = buildNormalizedStream(env, source, jobArgs);
 
-    KafkaSink<String> sink = buildSink(jobArgs);
-    normalized.sinkTo(sink).name("kafka_news_events_v1");
+    KafkaSink<String> newsEventSink = buildSink(jobArgs, jobArgs.outputTopic);
+    normalized.sinkTo(newsEventSink).name("kafka_news_events_v1");
+
+    DataStream<String> candidates = normalized
+        .map(NewsEventCandidateMapper::toEventCandidateJson, TypeInformation.of(String.class))
+        .name("to_event_candidates")
+        .filter(value -> value != null)
+        .name("drop_invalid_candidates");
+
+    KafkaSink<String> candidatesSink = buildSink(jobArgs, jobArgs.candidatesTopic);
+    candidates.sinkTo(candidatesSink).name("kafka_event_candidates_v1");
 
     env.execute("news_normalize_job");
   }
@@ -64,7 +73,7 @@ public final class NewsNormalizeJob {
         .name("dedup_ttl");
   }
 
-  private static KafkaSink<String> buildSink(NewsNormalizeJobArgs jobArgs) {
+  private static KafkaSink<String> buildSink(NewsNormalizeJobArgs jobArgs, String topic) {
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.LINGER_MS_CONFIG, "50");
 
@@ -73,7 +82,7 @@ public final class NewsNormalizeJob {
         .setKafkaProducerConfig(producerProps)
         .setRecordSerializer(
             KafkaRecordSerializationSchema.builder()
-                .setTopic(jobArgs.outputTopic)
+                .setTopic(topic)
                 .setValueSerializationSchema(new org.apache.flink.api.common.serialization.SimpleStringSchema())
                 .build())
         .build();

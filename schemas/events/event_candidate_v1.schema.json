@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/events/event_candidate_v1.schema.json",
+  "title": "event_candidate_v1",
+  "type": "object",
+  "description": "Event candidate derived from normalized news events (rule-first, model-later).",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "candidate_id",
+    "source_event_id",
+    "observed_at",
+    "title",
+    "body",
+    "source_url",
+    "language",
+    "entities",
+    "topics"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1"] },
+    "event_type": { "type": "string", "enum": ["event_candidate"] },
+    "candidate_id": { "type": "string", "description": "Stable id for candidate; may reuse source_event_id in v1" },
+    "source_event_id": { "type": "string", "description": "The originating normalized news_event event_id" },
+    "observed_at": { "type": "string", "description": "Event time (normalized), RFC3339" },
+    "title": { "type": "string" },
+    "body": { "type": "string" },
+    "source_url": { "type": "string" },
+    "language": { "type": "string" },
+    "symbols": { "type": "array", "items": { "type": "string" } },
+    "entities": { "type": "array", "items": { "type": "string" } },
+    "topics": { "type": "array", "items": { "type": "string" } },
+    "quality": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "extraction_ok": { "type": ["boolean", "null"] },
+        "extractor": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
