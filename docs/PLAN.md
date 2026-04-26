@@ -25,6 +25,7 @@
   - Serving 最小落地：先把 `event_candidates_v1` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
     - Postgres 表初始化：`make pg-init-event-candidates`
     - 可选：一键启动带 Postgres 的开发环境：`make dev-smoke limit=10 seed=7`
+      - dev 专用：Postgres 使用 `trust`（无密码），不要用于生产
 
 - **M2：RAG 文档流（投研框架/术语表/历史事件，可追溯）**
   - `doc_updates` 文档变更流进入 Kafka（本机先用文件模拟）

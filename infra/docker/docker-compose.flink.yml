@@ -4,8 +4,6 @@ services:
     command: jobmanager
     ports:
       - "${FLINK_UI_PORT:-18081}:8081"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
@@ -25,8 +23,6 @@ services:
     command: taskmanager
     depends_on:
       - flink-jobmanager
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager

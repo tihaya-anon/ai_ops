@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    # Production reference only.
+    # In real deployments, provision Postgres separately and inject connection
+    # details via Secrets/ConfigMaps/SecretManager.
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-ai_ops}
+      POSTGRES_USER: ${PGUSER:-ai_ops}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?set PGPASSWORD (or use a Secret manager)}
+    volumes:
+      - ../../data/pg:/var/lib/postgresql/data

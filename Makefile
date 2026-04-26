@@ -173,7 +173,7 @@ pg-tail-event-candidates:
 # ---- Dev env: portable compose (includes Postgres container) ----
 
 DEV_PROJECT ?= aiops-dev
-DEV_COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(DEV_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml -f infra/docker/docker-compose.pg.yml
+DEV_COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(DEV_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml -f infra/docker/docker-compose.pg.dev.yml
 
 dev-up:
 	$(DEV_COMPOSE) up -d redpanda mock-api postgres flink-jobmanager flink-taskmanager

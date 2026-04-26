@@ -6,8 +6,8 @@ services:
     environment:
       POSTGRES_DB: ${PGDATABASE:-ai_ops}
       POSTGRES_USER: ${PGUSER:-ai_ops}
-      # Dev-only: allow passwordless connections for fast local iteration.
-      # Production should use passwords + Secrets/ConfigMaps and NOT trust auth.
-      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-trust}
+      # Dev-only: passwordless connections for fast local iteration.
+      # Do NOT use this in production.
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - ../../data/pg:/var/lib/postgresql/data
