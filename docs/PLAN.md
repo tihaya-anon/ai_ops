@@ -1,6 +1,7 @@
 - **M0：环境与工程骨架（先做，保证开发可快速测试）**
   - 文件夹结构对齐 Lambda：`docs/PROJECT_STRUCTURE.md`
   - 本机一键启动依赖：`infra/docker/docker-compose.yml` + `Makefile`
+    - 本地环境变量约定：复制 `.env.example` 为 `.env`（不提交），Docker Compose 通过 `--env-file` 读取同一组 key，便于后续迁移到 K8s/AWS Secrets
     - Batch（Spark）已完成：`make up` / `make spark-sample dt=...` / `make spark-daily dt=...`
     - Streaming（Flink/Kafka/OTel/DB）后续按 profile 逐步加，避免一次性引入太多组件
   - 测试策略（先轻后重）：
@@ -23,6 +24,7 @@
     - Schema（JSON Schema）：`schemas/events/event_candidate_v1.schema.json`
   - Serving 最小落地：先把 `event_candidates_v1` 写入 Postgres（或文件），提供一个最小查询接口（后续补）
     - Postgres 表初始化：`make pg-init-event-candidates`
+    - 可选：一键启动带 Postgres 的开发环境：`make dev-smoke limit=10 seed=7`
 
 - **M2：RAG 文档流（投研框架/术语表/历史事件，可追溯）**
   - `doc_updates` 文档变更流进入 Kafka（本机先用文件模拟）

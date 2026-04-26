@@ -1,6 +1,7 @@
 SPARK_PROJECT ?= aiops-spark
 ENV_FILE ?= .env
 COMPOSE_ENV_FILE := $(if $(wildcard $(ENV_FILE)),--env-file $(ENV_FILE),)
+ENV_SH := $(if $(wildcard $(ENV_FILE)),set -a && . ./$(ENV_FILE) && set +a &&,)
 
 COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(SPARK_PROJECT) -f infra/docker/docker-compose.yml
 SPARK_MASTER ?= local[*]
@@ -9,7 +10,8 @@ SPARK_MASTER ?= local[*]
 	ingest-up ingest-down ingest-ps ingest-logs ingest-init-topics ingest-news ingest-consume-news ingest-smoke \
 	stream-up stream-down stream-ps stream-logs stream-build-news-normalize stream-run-news-normalize \
 	stream-init-topics stream-consume-news-events stream-consume-event-candidates stream-smoke \
-	pg-init-event-candidates pg-tail-event-candidates
+	pg-init-event-candidates pg-tail-event-candidates \
+	dev-up dev-down dev-ps dev-logs dev-init-topics dev-run-news-normalize dev-run-news-normalize-pg dev-smoke
 
 up:
 	$(COMPOSE) up -d
@@ -161,9 +163,57 @@ stream-smoke:
 # Initialize the event_candidates table.
 # Requires psql on host and PG* env vars (see .env.example).
 pg-init-event-candidates:
-	psql -v ON_ERROR_STOP=1 -f scripts/sql/init_event_candidates_v1.sql
+	$(ENV_SH) psql -v ON_ERROR_STOP=1 -f scripts/sql/init_event_candidates_v1.sql
 
 # Quick debug: show latest candidates in Postgres.
 pg-tail-event-candidates:
 	@N=$(or $(n),5); \
-	  psql -v ON_ERROR_STOP=1 -c "select candidate_id, observed_at, left(payload->>'title', 80) as title from event_candidates_v1 order by observed_at desc nulls last limit $$N;"
+	  $(ENV_SH) psql -v ON_ERROR_STOP=1 -c "select candidate_id, observed_at, left(payload->>'title', 80) as title from event_candidates_v1 order by observed_at desc nulls last limit $$N;"
+
+# ---- Dev env: portable compose (includes Postgres container) ----
+
+DEV_PROJECT ?= aiops-dev
+DEV_COMPOSE ?= docker compose $(COMPOSE_ENV_FILE) -p $(DEV_PROJECT) -f infra/docker/docker-compose.ingest.yml -f infra/docker/docker-compose.flink.yml -f infra/docker/docker-compose.pg.yml
+
+dev-up:
+	$(DEV_COMPOSE) up -d redpanda mock-api postgres flink-jobmanager flink-taskmanager
+
+dev-down:
+	$(DEV_COMPOSE) down
+
+dev-ps:
+	$(DEV_COMPOSE) ps
+
+dev-logs:
+	$(DEV_COMPOSE) logs -f --tail=200
+
+dev-init-topics:
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+	  $(DEV_COMPOSE) exec -T redpanda rpk cluster health >/dev/null 2>&1 && break; \
+	  sleep 1; \
+	done
+	@$(DEV_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_raw_v1 >/dev/null 2>&1 || true
+	@$(DEV_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 news_events_v1 >/dev/null 2>&1 || true
+	@$(DEV_COMPOSE) exec -T redpanda rpk topic create -p 1 -r 1 event_candidates_v1 >/dev/null 2>&1 || true
+
+dev-run-news-normalize:
+	$(DEV_COMPOSE) exec -T flink-jobmanager flink run -d /opt/flink/usrlib/news_normalize_job.jar \
+	  -- --bootstrap redpanda:9092 --input-topic news_events_raw_v1 --output-topic news_events_v1 --candidates-topic event_candidates_v1
+
+dev-run-news-normalize-pg:
+	$(DEV_COMPOSE) exec -T -e PG_ENABLED=true flink-jobmanager flink run -d /opt/flink/usrlib/news_normalize_job.jar \
+	  -- --bootstrap redpanda:9092 --input-topic news_events_raw_v1 --output-topic news_events_v1 --candidates-topic event_candidates_v1
+
+# End-to-end smoke (dev env): includes Postgres container.
+dev-smoke:
+	$(MAKE) dev-up
+	$(MAKE) dev-init-topics
+	$(MAKE) pg-init-event-candidates
+	$(MAKE) stream-build-news-normalize
+	$(MAKE) dev-run-news-normalize-pg
+	@sleep 3
+	COMPOSE_PROFILES=ingest $(DEV_COMPOSE) run --rm ingest-news --limit $(or $(limit),10) --seed $(or $(seed),7)
+	@sleep 3
+	@$(DEV_COMPOSE) exec -T redpanda rpk topic consume news_events_v1 --offset -1 -n 1
+	@$(DEV_COMPOSE) exec -T redpanda rpk topic consume event_candidates_v1 --offset -1 -n 1
+	$(MAKE) pg-tail-event-candidates n=1

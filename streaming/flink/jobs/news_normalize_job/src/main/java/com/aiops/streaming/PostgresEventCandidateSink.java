@@ -22,16 +22,18 @@ final class PostgresEventCandidateSink extends RichSinkFunction<String> {
   private final String user;
   private final String password;
   private final String table;
+  private final int batchSize;
 
   private transient Connection connection;
   private transient PreparedStatement upsert;
   private transient List<Row> buffer;
 
-  PostgresEventCandidateSink(String jdbcUrl, String user, String password, String table) {
+  PostgresEventCandidateSink(String jdbcUrl, String user, String password, String table, int batchSize) {
     this.jdbcUrl = Objects.requireNonNull(jdbcUrl, "jdbcUrl");
     this.user = user;
     this.password = password;
     this.table = Objects.requireNonNull(table, "table");
+    this.batchSize = batchSize > 0 ? batchSize : DEFAULT_BATCH_SIZE;
   }
 
   @Override
@@ -62,7 +64,7 @@ final class PostgresEventCandidateSink extends RichSinkFunction<String> {
         + "updated_at = now()";
 
     upsert = connection.prepareStatement(sql);
-    buffer = new ArrayList<>(DEFAULT_BATCH_SIZE);
+    buffer = new ArrayList<>(batchSize);
   }
 
   @Override
@@ -73,7 +75,7 @@ final class PostgresEventCandidateSink extends RichSinkFunction<String> {
     }
 
     buffer.add(row);
-    if (buffer.size() >= DEFAULT_BATCH_SIZE) {
+    if (buffer.size() >= batchSize) {
       flush();
     }
   }
@@ -165,4 +167,3 @@ final class PostgresEventCandidateSink extends RichSinkFunction<String> {
     }
   }
 }
-

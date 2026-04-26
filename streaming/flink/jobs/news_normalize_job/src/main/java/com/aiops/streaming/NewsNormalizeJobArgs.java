@@ -12,6 +12,7 @@ public final class NewsNormalizeJobArgs {
   final String pgUser;
   final String pgPassword;
   final String pgTable;
+  final int pgBatchSize;
 
   private NewsNormalizeJobArgs(
       String bootstrapServers,
@@ -24,7 +25,8 @@ public final class NewsNormalizeJobArgs {
       String pgJdbcUrl,
       String pgUser,
       String pgPassword,
-      String pgTable) {
+      String pgTable,
+      int pgBatchSize) {
     this.bootstrapServers = bootstrapServers;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
@@ -36,6 +38,7 @@ public final class NewsNormalizeJobArgs {
     this.pgUser = pgUser;
     this.pgPassword = pgPassword;
     this.pgTable = pgTable;
+    this.pgBatchSize = pgBatchSize;
   }
 
   static NewsNormalizeJobArgs parse(String[] args) {
@@ -50,6 +53,7 @@ public final class NewsNormalizeJobArgs {
     String pgUser = envOrDefault("PG_USER", "");
     String pgPassword = envOrDefault("PG_PASSWORD", "");
     String pgTable = envOrDefault("PG_TABLE", "event_candidates_v1");
+    int pgBatchSize = Integer.parseInt(envOrDefault("PG_BATCH_SIZE", "50"));
 
     for (int i = 0; i < args.length; i++) {
       switch (args[i]) {
@@ -86,6 +90,9 @@ public final class NewsNormalizeJobArgs {
         case "--pg-table":
           pgTable = args[++i];
           break;
+        case "--pg-batch-size":
+          pgBatchSize = Integer.parseInt(args[++i]);
+          break;
         default:
           break;
       }
@@ -102,7 +109,8 @@ public final class NewsNormalizeJobArgs {
         pgJdbcUrl,
         pgUser,
         pgPassword,
-        pgTable);
+        pgTable,
+        pgBatchSize);
   }
 
   private static String envOrDefault(String name, String defaultValue) {

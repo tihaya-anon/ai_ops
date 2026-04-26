@@ -42,7 +42,8 @@ public final class NewsNormalizeJob {
                   jobArgs.pgJdbcUrl,
                   jobArgs.pgUser,
                   jobArgs.pgPassword,
-                  jobArgs.pgTable))
+                  jobArgs.pgTable,
+                  jobArgs.pgBatchSize))
           .name("pg_event_candidates_v1");
     }
 
